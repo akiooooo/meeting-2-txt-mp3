@@ -11,9 +11,9 @@ jobs:
         run: .\build.cmd
       - uses: actions/upload-artifact@v4
         with:
-          name: VideoToMP3-Windows
+          name: Meeting2Text-Windows
           path: |
-            VideoToMP3.exe
+            Meeting2Text.exe
             scripts/Get-Models.ps1
             models/LICENSE-*.txt
             README.md

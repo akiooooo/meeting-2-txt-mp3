@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace VideoToMp3
+namespace Meeting2Text
 {
     internal sealed class MainWindow : Form
     {
@@ -67,7 +67,7 @@ namespace VideoToMp3
 
         public MainWindow()
         {
-            Text = "Речекадр";
+            Text = "Meeting2Text";
             Font = new Font("Segoe UI", 10);
             BackColor = Paper;
             AutoScaleDimensions = new SizeF(96, 96);
@@ -93,7 +93,7 @@ namespace VideoToMp3
                         e.Graphics.DrawLine(pen, 28 + i * 8, 43 - heights[i], 28 + i * 8, 43 + heights[i]);
                 }
             };
-            var title = Caption("Речекадр", 21, true);
+            var title = Caption("Meeting2Text", 21, true);
             title.ForeColor = Color.White;
             var description = Caption("Из записи встречи — в текст с таймкодами и MP3", 10);
             description.ForeColor = Color.FromArgb(201, 224, 220);

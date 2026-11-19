@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 
-namespace VideoToMp3
+namespace Meeting2Text
 {
     internal sealed class ExportProgress
     {

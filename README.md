@@ -1,14 +1,16 @@
-# Речекадр
+# Meeting2Text
 
-**Из записи встречи — в текст с таймкодами и MP3.** Перетащите видео в Речекадр, чтобы найти нужную фразу в тексте или послушать разговор по дороге. Несколько записей можно объединить, а длинный разговор — разделить на короткие аудиофайлы. Речекадр работает на Windows и после установки распознаёт речь прямо на компьютере.
+**Из записи встречи — в текст с таймкодами и MP3.** Перетащите видео в Meeting2Text, чтобы найти нужную фразу в тексте или послушать разговор по дороге. Несколько записей можно объединить, а длинный разговор — разделить на короткие аудиофайлы. Meeting2Text работает на Windows и после установки распознаёт речь прямо на компьютере.
 
-[**Скачать для Windows x64**](https://github.com/akiooooo/meeting-2-txt-mp3/releases/latest/download/Rechekadr-Setup-x64.exe) · [Все версии](https://github.com/akiooooo/meeting-2-txt-mp3/releases)
+[**Полный установщик для Windows x64**](https://github.com/akiooooo/meeting-2-txt-mp3/releases/latest/download/Meeting2Text-Setup-x64.exe) · [Компактный веб-установщик](https://github.com/akiooooo/meeting-2-txt-mp3/releases/latest/download/Meeting2Text-WebSetup-x64.exe) · [Все версии](https://github.com/akiooooo/meeting-2-txt-mp3/releases)
 
 ![Окно программы с очередью из трёх файлов и настройками MP3 и TXT](docs/interface.png)
 
 ## Запуск
 
-Запустите **Rechekadr-Setup-x64.exe**. Установщик добавит приложение в меню «Пуск» и откроет его. FFmpeg и обе модели распознавания уже внутри. Права администратора и подключение к интернету при установке не требуются.
+Запустите **Meeting2Text-Setup-x64.exe**. Установщик добавит приложение в меню «Пуск» и откроет его. FFmpeg и обе модели распознавания уже внутри. Права администратора и подключение к интернету при установке не требуются.
+
+Веб-установщик скачивает тот же полный пакет с GitHub и проверяет SHA-256 перед запуском. Для установки без интернета используйте полный EXE.
 
 ## Обработка записей
 
@@ -32,6 +34,6 @@
 build.cmd
 ```
 
-Результат — `VideoToMP3.exe` рядом со скриптом. Сборка использует системный компилятор C# и Windows Forms. Для запуска из исходников установите FFmpeg с фильтром whisper и выполните `powershell -ExecutionPolicy Bypass -File .\scripts\Get-Models.ps1`. Для сборки установщика укажите путь к bin полной shared-сборки Gyan FFmpeg в переменной FFMPEG_BIN и скомпилируйте scripts/Rechekadr.iss в Inno Setup 6.
+Результат — `Meeting2Text.exe` рядом со скриптом. Сборка использует системный компилятор C# и Windows Forms. Для запуска из исходников установите FFmpeg с фильтром whisper и выполните `powershell -ExecutionPolicy Bypass -File .\scripts\Get-Models.ps1`. Для сборки установщика укажите путь к bin полной shared-сборки Gyan FFmpeg в переменной FFMPEG_BIN и скомпилируйте scripts/Meeting2Text.iss в Inno Setup 6.
 
 Распознавание использует [Whisper small](https://huggingface.co/ggerganov/whisper.cpp) и [Silero VAD](https://huggingface.co/ggml-org/whisper-vad) через фильтр [FFmpeg whisper](https://ffmpeg.org/ffmpeg-filters.html#whisper). Лицензии моделей находятся в каталоге `models`.
