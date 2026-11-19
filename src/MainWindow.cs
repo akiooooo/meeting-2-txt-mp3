@@ -67,7 +67,7 @@ namespace VideoToMp3
 
         public MainWindow()
         {
-            Text = "Видео в MP3";
+            Text = "Речекадр";
             Font = new Font("Segoe UI", 10);
             BackColor = Paper;
             AutoScaleDimensions = new SizeF(96, 96);
@@ -93,9 +93,9 @@ namespace VideoToMp3
                         e.Graphics.DrawLine(pen, 28 + i * 8, 43 - heights[i], 28 + i * 8, 43 + heights[i]);
                 }
             };
-            var title = Caption("Видео в MP3", 21, true);
+            var title = Caption("Речекадр", 21, true);
             title.ForeColor = Color.White;
-            var description = Caption("Извлечение звука и расшифровка созвонов в текст", 10);
+            var description = Caption("Из записи встречи — в текст с таймкодами и MP3", 10);
             description.ForeColor = Color.FromArgb(201, 224, 220);
             header.Controls.Add(title, 0, 0);
             header.Controls.Add(description, 0, 1);
