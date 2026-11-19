@@ -1,0 +1,13 @@
+# Only project sources and distribution files belong in this workspace repository.
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/build.cmd
+!/src/
+!/docs/
+!/models/
+/models/*
+!/models/LICENSE-*.txt
+!/scripts/
+!/.github/

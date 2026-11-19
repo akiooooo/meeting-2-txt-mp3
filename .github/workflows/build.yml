@@ -1,0 +1,20 @@
+name: Windows build
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile
+        run: .\build.cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VideoToMP3-Windows
+          path: |
+            VideoToMP3.exe
+            scripts/Get-Models.ps1
+            models/LICENSE-*.txt
+            README.md
+            docs/interface.png
