@@ -2,16 +2,13 @@
 
 **Из записи встречи — в текст с таймкодами и MP3.** Перетащите видео в Речекадр, чтобы найти нужную фразу в тексте или послушать разговор по дороге. Несколько записей можно объединить, а длинный разговор — разделить на короткие аудиофайлы. Речекадр работает на Windows и после установки распознаёт речь прямо на компьютере.
 
-[**Скачать для Windows x64**](https://github.com/akiooooo/video-to-mp3/releases/latest/download/VideoToMP3-Windows.zip) · [Все версии](https://github.com/akiooooo/video-to-mp3/releases)
+[**Скачать для Windows x64**](https://github.com/akiooooo/video-to-mp3/releases/latest/download/Rechekadr-Setup-x64.exe) · [Все версии](https://github.com/akiooooo/video-to-mp3/releases)
 
 ![Окно программы с очередью из трёх файлов и настройками MP3 и TXT](docs/interface.png)
 
 ## Запуск
 
-1. Распакуйте ZIP в отдельную папку.
-2. Установите полную сборку FFmpeg. В PowerShell выполните `winget install --id Gyan.FFmpeg.Shared -e`. После установки откройте новое окно PowerShell. Для расшифровки команда `ffmpeg -hide_banner -h filter=whisper` должна показывать параметры фильтра.
-3. Для работы с текстом один раз скачайте модели. В папке приложения выполните `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Get-Models.ps1`. Загрузка занимает около 191 МБ. Скрипт проверяет SHA-256 каждого файла. Этот шаг нужен только для TXT.
-4. Запустите `VideoToMP3.exe`.
+Запустите **Rechekadr-Setup-x64.exe**. Установщик добавит приложение в меню «Пуск» и откроет его. FFmpeg и обе модели распознавания уже внутри. Права администратора и подключение к интернету при установке не требуются.
 
 ## Обработка записей
 
@@ -35,6 +32,6 @@
 build.cmd
 ```
 
-Результат — `VideoToMP3.exe` рядом со скриптом. Сборка использует системный компилятор C# и Windows Forms. Для запуска установите зависимости по инструкции выше.
+Результат — `VideoToMP3.exe` рядом со скриптом. Сборка использует системный компилятор C# и Windows Forms. Для запуска из исходников установите FFmpeg с фильтром whisper и выполните `powershell -ExecutionPolicy Bypass -File .\scripts\Get-Models.ps1`. Для сборки установщика укажите путь к bin полной shared-сборки Gyan FFmpeg в переменной FFMPEG_BIN и скомпилируйте scripts/Rechekadr.iss в Inno Setup 6.
 
 Распознавание использует [Whisper small](https://huggingface.co/ggerganov/whisper.cpp) и [Silero VAD](https://huggingface.co/ggml-org/whisper-vad) через фильтр [FFmpeg whisper](https://ffmpeg.org/ffmpeg-filters.html#whisper). Лицензии моделей находятся в каталоге `models`.
