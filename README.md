@@ -2,7 +2,7 @@
 
 **Из записи встречи — в текст с таймкодами и MP3.** Перетащите видео в Речекадр, чтобы найти нужную фразу в тексте или послушать разговор по дороге. Несколько записей можно объединить, а длинный разговор — разделить на короткие аудиофайлы. Речекадр работает на Windows и после установки распознаёт речь прямо на компьютере.
 
-[**Скачать для Windows x64**](https://github.com/akiooooo/video-to-mp3/releases/latest/download/Rechekadr-Setup-x64.exe) · [Все версии](https://github.com/akiooooo/video-to-mp3/releases)
+[**Скачать для Windows x64**](https://github.com/akiooooo/meeting-2-txt-mp3/releases/latest/download/Rechekadr-Setup-x64.exe) · [Все версии](https://github.com/akiooooo/meeting-2-txt-mp3/releases)
 
 ![Окно программы с очередью из трёх файлов и настройками MP3 и TXT](docs/interface.png)
 
