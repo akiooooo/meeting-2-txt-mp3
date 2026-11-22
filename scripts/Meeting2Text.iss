@@ -3,7 +3,7 @@
 ; Keep the installation identity so existing copies can be upgraded.
 AppId=Rechekadr.Desktop
 AppName=Meeting2Text
-AppVersion=1.1.0
+AppVersion=1.2.0
 DefaultDirName={localappdata}\Programs\Meeting2Text
 DefaultGroupName=Meeting2Text
 UsePreviousGroup=no

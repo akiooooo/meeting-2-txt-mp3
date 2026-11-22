@@ -3,7 +3,7 @@
 #define OfflineHash GetSHA256OfFile(SourcePath + "\..\dist\" + OfflineName)
 [Setup]
 AppName=Meeting2Text
-AppVersion=1.1.0
+AppVersion=1.2.0
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 CreateAppDir=no
@@ -16,7 +16,7 @@ OutputBaseFilename=Meeting2Text-WebSetup-x64
 [Languages]
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
 [Files]
-Source: "https://github.com/akiooooo/meeting-2-txt-mp3/releases/download/v1.1.0/{#OfflineName}"; DestDir: "{tmp}"; DestName: "{#OfflineName}"; ExternalSize: {#InstallerBytes}; Hash: "{#OfflineHash}"; Flags: external download ignoreversion
+Source: "https://github.com/akiooooo/meeting-2-txt-mp3/releases/download/v1.2.0/{#OfflineName}"; DestDir: "{tmp}"; DestName: "{#OfflineName}"; ExternalSize: {#InstallerBytes}; Hash: "{#OfflineHash}"; Flags: external download ignoreversion
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);
 var

@@ -99,10 +99,10 @@ namespace Meeting2Text
         }
 
         public static string Run(string[] videos, string destination, int partMinutes, bool saveMp3,
-                                 string speechLanguage, CancellationToken token, Action<ExportProgress> progress)
+                                 string speechLanguage, CancellationToken token, Action<ExportProgress> progress, DateTime? mnDate = null, bool saveTranscript = true)
         {
             if (videos.Length == 0 || partMinutes < 0) throw new ArgumentException("Проверьте список файлов и длительность.");
-            if (!saveMp3 && speechLanguage == null) throw new ArgumentException("Выберите формат результата.");
+            if (!saveMp3 && speechLanguage == null && !mnDate.HasValue) throw new ArgumentException("Выберите формат результата.");
             if (!saveMp3 && partMinutes != 0) throw new ArgumentException("Разбиение доступно при сохранении MP3.");
             if (speechLanguage != null && speechLanguage != "ru" && speechLanguage != "auto" && speechLanguage != "en")
                 throw new ArgumentException("Неизвестный язык речи.");
@@ -115,6 +115,15 @@ namespace Meeting2Text
             string transcript = speechLanguage == null ? null : Path.Combine(stage, "transcript.txt");
             try
             {
+                string stem = videos.Length == 1 ? Path.GetFileNameWithoutExtension(videos[0]) : "Общее аудио";
+                string mn = mnDate.HasValue ? Path.Combine(stage, "notes.txt") : null;
+                if (videos.Length == 1 && string.Equals(Path.GetExtension(videos[0]), ".txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (mn == null || saveMp3) throw new ArgumentException("Для TXT выберите протокол MN.");
+                    MeetingNotes.Write(videos[0], mn, mnDate.Value, token, progress);
+                    token.ThrowIfCancellationRequested();
+                    return Publish(stem, destination, null, null, null, mn);
+                }
                 bool split = partMinutes > 0;
                 bool join = saveMp3 || videos.Length > 1;
                 string targets = saveMp3 ? Mp3 + Quote(master) : "";
@@ -127,8 +136,9 @@ namespace Meeting2Text
                     Transcribe(source, transcript, speechLanguage, token, progress);
                 }
                 token.ThrowIfCancellationRequested();
-                string stem = videos.Length == 1 ? Path.GetFileNameWithoutExtension(videos[0]) : "Общее аудио";
-                return Publish(stem, destination, saveMp3 ? master : null, split ? parts : null, transcript);
+                if (mn != null) MeetingNotes.Write(transcript, mn, mnDate.Value, token, progress);
+                token.ThrowIfCancellationRequested();
+                return Publish(stem, destination, saveMp3 ? master : null, split ? parts : null, saveTranscript ? transcript : null, mn);
             }
             catch (Exception) { token.ThrowIfCancellationRequested(); throw; }
             finally { Directory.Delete(stage, true); }
@@ -254,32 +264,36 @@ namespace Meeting2Text
 
         static bool Exists(string path) { return File.Exists(path) || Directory.Exists(path); }
 
-        static string Publish(string stem, string destination, string master, string parts, string transcript)
+        static string Publish(string stem, string destination, string master, string parts, string transcript, string mn)
         {
             for (int n = 1; ; n++)
             {
                 string name = n == 1 ? stem : stem + " (" + n + ")";
                 string path = Path.Combine(destination, name + ".mp3");
                 string folder = Path.Combine(destination, name + " — части");
+                string mnPath = Path.Combine(destination, name + ".mn.txt");
                 string txt = Path.Combine(destination, name + ".txt");
-                if ((master != null && Exists(path)) || (transcript != null && Exists(txt)) || (parts != null && Exists(folder))) continue;
-                bool movedMp3 = false, movedTxt = false;
+                if ((mn != null && Exists(mnPath)) || (master != null && Exists(path)) || (transcript != null && Exists(txt)) || (parts != null && Exists(folder))) continue;
+                bool movedMp3 = false, movedTxt = false, movedMn = false;
                 try
                 {
                     if (master != null) { File.Move(master, path); movedMp3 = true; }
                     if (transcript != null) { File.Move(transcript, txt); movedTxt = true; }
+                    if (mn != null) { File.Move(mn, mnPath); movedMn = true; }
                     if (parts != null) Directory.Move(parts, folder);
-                    return master == null ? txt : path;
+                    return master != null ? path : transcript != null ? txt : mnPath;
                 }
                 catch (IOException)
                 {
+                    if (movedMn) File.Move(mnPath, mn);
                     if (movedTxt) File.Move(txt, transcript);
                     if (movedMp3) File.Move(path, master);
-                    if ((master != null && Exists(path)) || (transcript != null && Exists(txt)) || (parts != null && Exists(folder))) continue;
+                    if ((mn != null && Exists(mnPath)) || (master != null && Exists(path)) || (transcript != null && Exists(txt)) || (parts != null && Exists(folder))) continue;
                     throw;
                 }
                 catch
                 {
+                    if (movedMn) File.Move(mnPath, mn);
                     if (movedTxt) File.Move(txt, transcript);
                     if (movedMp3) File.Move(path, master);
                     throw;

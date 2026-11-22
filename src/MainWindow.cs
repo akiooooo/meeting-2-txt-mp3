@@ -22,6 +22,12 @@ namespace Meeting2Text
         readonly CheckBox split = new CheckBox();
         readonly CheckBox saveMp3 = new CheckBox(), transcribe = new CheckBox();
         readonly ComboBox language = new ComboBox();
+        readonly CheckBox mn = new CheckBox();
+        readonly DateTimePicker mnDate = new DateTimePicker();
+        readonly Button openMn;
+        string lastMn;
+        bool TextInput { get { return list.Items.Count == 1 && IsTranscript((string)list.Items[0]); } }
+        static bool IsTranscript(string p) { return Path.GetExtension(p).Equals(".txt", StringComparison.OrdinalIgnoreCase); }
         readonly NumericUpDown minutes = new NumericUpDown();
         readonly Button add, up, down, remove, browse, run, open, openText;
         readonly ProgressBar bar = new ProgressBar();
@@ -101,7 +107,7 @@ namespace Meeting2Text
             header.Controls.Add(description, 0, 1);
             root.Controls.Add(header, 0, 0);
 
-            var body = Rows(42, -1, 54, 30, 43, 84);
+            var body = Rows(42, -1, 54, 30, 43, 84, 38);
             body.Padding = new Padding(24, 8, 24, 12);
             root.Controls.Add(body, 0, 1);
             var section = Pair();
@@ -135,7 +141,7 @@ namespace Meeting2Text
             empty.BackColor = Color.White;
             empty.ForeColor = Muted;
             empty.TextAlign = ContentAlignment.MiddleCenter;
-            empty.Text = "Перетащите сюда видео или аудио\nили нажмите, чтобы выбрать файлы";
+            empty.Text = "Перетащите сюда запись или расшифровку TXT\nили нажмите, чтобы выбрать файлы";
             empty.Cursor = Cursors.Hand;
             empty.Click += delegate { if (cancel == null) PickVideos(); };
             frame.Controls.Add(list);
@@ -231,6 +237,19 @@ namespace Meeting2Text
             settings.Controls.AddRange(new Control[] { split, minutes, unit });
             audioCard.Controls.Add(settings, 0, 1);
 
+            var notesRow = Line();
+            mn.Text = "Протокол MN";
+            mn.AutoSize = true;
+            mn.Margin = new Padding(8, 8, 18, 0);
+            var dateLabel = Caption("Дата встречи", 10);
+            dateLabel.Margin = new Padding(0, 8, 8, 0);
+            mnDate.Format = DateTimePickerFormat.Custom;
+            mnDate.CustomFormat = "dd.MM.yyyy";
+            mnDate.Width = 122;
+            mnDate.AccessibleName = "Дата встречи для протокола MN";
+            mnDate.Margin = new Padding(0, 5, 0, 0);
+            notesRow.Controls.AddRange(new Control[] { mn, dateLabel, mnDate });
+            body.Controls.Add(notesRow, 0, 6);
             var footer = Rows(24, 6, -1);
             footer.Padding = new Padding(24, 6, 24, 8);
             footer.BackColor = Color.White;
@@ -238,7 +257,7 @@ namespace Meeting2Text
             status.Dock = DockStyle.Fill;
             status.AutoEllipsis = true;
             status.ForeColor = Muted;
-            status.Text = "Добавьте видео или аудиофайл";
+            status.Text = "Добавьте запись или расшифровку TXT";
             status.Margin = Padding.Empty;
             footer.Controls.Add(status, 0, 0);
             bar.Dock = DockStyle.Fill;
@@ -266,10 +285,14 @@ namespace Meeting2Text
             };
             var results = Line();
             results.Padding = new Padding(0, 8, 0, 0);
-            results.Controls.AddRange(new Control[] { open, openText });
+            openMn = ButtonFor("Открыть MN", 115);
+            openMn.Click += delegate { if (File.Exists(lastMn)) Process.Start("notepad.exe", "\"" + lastMn + "\""); };
+            results.Controls.AddRange(new Control[] { open, openText, openMn });
             actions.Controls.Add(results, 0, 0);
             actions.Controls.Add(run, 1, 0);
             footer.Controls.Add(actions, 0, 2);
+            mn.CheckedChanged += delegate { SettingsChanged(); };
+            mnDate.ValueChanged += delegate { SettingsChanged(); };
             saveMp3.CheckedChanged += delegate { SettingsChanged(); };
             transcribe.CheckedChanged += delegate { SettingsChanged(); };
             language.SelectedIndexChanged += delegate { SettingsChanged(); };
@@ -303,8 +326,8 @@ namespace Meeting2Text
         }
         void PickVideos()
         {
-            using (var dlg = new OpenFileDialog { Multiselect = true, Title = "Выберите видео или аудио",
-                Filter = "Видео и аудио|*.mp4;*.webm;*.mkv;*.mov;*.avi;*.m4v;*.mpeg;*.mpg;*.wmv;*.ts;*.mts;*.m2ts;*.flv;*.3gp;*.vob;*.ogv;*.asf;*.mxf;*.mp3;*.m4a;*.wav;*.flac;*.aac;*.ogg;*.opus|Все файлы|*.*" })
+            using (var dlg = new OpenFileDialog { Multiselect = true, Title = "Выберите запись или готовую расшифровку TXT",
+                Filter = "Записи и расшифровки|*.txt;*.mp4;*.webm;*.mkv;*.mov;*.avi;*.m4v;*.mpeg;*.mpg;*.wmv;*.ts;*.mts;*.m2ts;*.flv;*.3gp;*.vob;*.ogv;*.asf;*.mxf;*.mp3;*.m4a;*.wav;*.flac;*.aac;*.ogg;*.opus|Все файлы|*.*" })
                 if (dlg.ShowDialog(this) == DialogResult.OK) AddVideos(dlg.FileNames);
         }
         protected override bool ProcessCmdKey(ref Message message, Keys key)
@@ -316,6 +339,14 @@ namespace Meeting2Text
         }
         void AddVideos(string[] paths)
         {
+            paths = paths.Where(File.Exists).ToArray();
+            if (paths.Length == 0) return;
+            if (TextInput || (paths.Any(IsTranscript) && (paths.Length != 1 || list.Items.Count != 0)))
+            {
+                MessageBox.Show(this, "Для протокола из готового текста добавьте один TXT в пустую очередь.");
+                return;
+            }
+            if (IsTranscript(paths[0])) mn.Checked = true;
             int first = list.Items.Count;
             foreach (string path in paths.Where(File.Exists)) list.Items.Add(path);
             if (list.Items.Count > first) list.SelectedIndex = first;
@@ -365,20 +396,24 @@ namespace Meeting2Text
             empty.Visible = list.Items.Count == 0;
             if (empty.Visible) empty.BringToFront();
             add.Enabled = browse.Enabled = folder.Enabled = list.Enabled = saveMp3.Enabled = transcribe.Enabled = idle;
-            language.Enabled = idle && transcribe.Checked;
-            split.Enabled = idle && saveMp3.Checked;
+            saveMp3.Enabled = transcribe.Enabled = idle && !TextInput;
+            mn.Enabled = idle && !TextInput;
+            mnDate.Enabled = idle && mn.Checked;
+            language.Enabled = idle && !TextInput && (transcribe.Checked || mn.Checked);
+            split.Enabled = idle && !TextInput && saveMp3.Checked;
             remove.Enabled = idle && selected;
             up.Enabled = idle && selected && list.SelectedIndices[0] > 0;
             down.Enabled = idle && selected && list.SelectedIndices[list.SelectedIndices.Count - 1] < list.Items.Count - 1;
             minutes.Enabled = split.Enabled && split.Checked;
-            bool outputChosen = saveMp3.Checked || transcribe.Checked;
+            bool outputChosen = mn.Checked || (!TextInput && (saveMp3.Checked || transcribe.Checked));
             run.Enabled = idle ? outputChosen && list.Items.Count > 0 && !String.IsNullOrWhiteSpace(folder.Text) : !cancel.IsCancellationRequested;
-            run.Text = !idle ? "Отменить" : !transcribe.Checked ? "Создать MP3" : saveMp3.Checked ? "Создать MP3 и TXT" : "Расшифровать";
+            run.Text = !idle ? "Отменить" : mn.Checked ? "Создать протокол" : !transcribe.Checked ? "Создать MP3" : saveMp3.Checked ? "Создать MP3 и TXT" : "Расшифровать";
             open.Visible = idle && lastResult != null;
-            openText.Visible = open.Visible && transcribe.Checked;
+            openText.Visible = open.Visible && transcribe.Checked && !TextInput;
+            openMn.Visible = open.Visible && mn.Checked && lastMn != null;
             if (idle && lastResult == null && bar.Value == 0 && !hasExportStatus)
                 status.Text = !outputChosen ? "Выберите MP3 или расшифровку" :
-                    list.Items.Count == 0 ? "Добавьте видео или аудиофайл" : "Готово к обработке";
+                    list.Items.Count == 0 ? "Добавьте запись или расшифровку TXT" : "Готово к обработке";
         }
         void CancelExport()
         {
@@ -389,9 +424,14 @@ namespace Meeting2Text
         async Task Export()
         {
             string[] files = list.Items.Cast<string>().ToArray();
-            bool audio = saveMp3.Checked;
+            bool audio = !TextInput && saveMp3.Checked;
+            bool txt = !TextInput && transcribe.Checked;
+            DateTime? date = mn.Checked ? (DateTime?)mnDate.Value.Date : null;
+            if (date.HasValue && !MeetingNotes.Ready && MessageBox.Show(this,
+                "Для протокола MN нужно один раз скачать языковую модель и движок (2,53 ГБ). Затем протоколы создаются без интернета. Скачать сейчас?",
+                "Локальная модель MN", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             int limit = audio && split.Checked ? (int)minutes.Value : 0;
-            string speechLanguage = transcribe.Checked ? new[] { "ru", "auto", "en" }[language.SelectedIndex] : null;
+            string speechLanguage = !TextInput && (txt || date.HasValue) ? new[] { "ru", "auto", "en" }[language.SelectedIndex] : null;
             cancel = new CancellationTokenSource();
             var token = cancel.Token;
             bar.Value = 0;
@@ -411,10 +451,11 @@ namespace Meeting2Text
                     }
                 });
                 lastResult = await Task.Run(() => AudioExport.Run(files, destination, limit, audio, speechLanguage, token,
-                    ((IProgress<ExportProgress>)progress).Report));
+                    ((IProgress<ExportProgress>)progress).Report, date, txt));
+                lastMn = !date.HasValue ? null : !audio && !txt ? lastResult : Path.ChangeExtension(lastResult, ".mn.txt");
                 bar.Value = 100;
                 status.Text = "Сохранено: " + Path.GetFileName(lastResult) +
-                    (audio && speechLanguage != null ? ", расшифровка .txt" : "") + (limit > 0 ? " и папка с частями" : "");
+                    (audio && txt ? ", расшифровка .txt" : "") + (limit > 0 ? " и папка с частями" : "") + (date.HasValue && (audio || txt) ? ", протокол MN" : "");
             }
             catch (OperationCanceledException) { bar.Value = 0; status.Text = "Сохранение отменено"; }
             catch (Exception e)
