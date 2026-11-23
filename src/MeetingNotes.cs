@@ -50,8 +50,9 @@ namespace Meeting2Text
 
         static void Download(string url, string path, string hash, string label, CancellationToken token, Action<ExportProgress> progress)
         {
+            progress(new ExportProgress(-1, label + "  ·  подключение…"));
             var req = (HttpWebRequest)WebRequest.Create(url);
-            req.Timeout = req.ReadWriteTimeout = 120000;
+            req.Timeout = req.ReadWriteTimeout = 45000;
             using (token.Register(req.Abort))
             using (var response = req.GetResponse())
             using (var input = response.GetResponseStream())
@@ -59,15 +60,19 @@ namespace Meeting2Text
             using (var sha = SHA256.Create())
             {
                 var buffer = new byte[262144];
-                int count, last = -1;
+                int count;
+                var timer = Stopwatch.StartNew();
                 while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
                 {
                     token.ThrowIfCancellationRequested();
                     output.Write(buffer, 0, count);
                     sha.TransformBlock(buffer, 0, count, buffer, 0);
                     int percent = response.ContentLength > 0 ? (int)(100 * output.Length / response.ContentLength) : -1;
-                    if (last != percent) progress(new ExportProgress(percent, label + "  ·  " + percent + "%"));
-                    last = percent;
+                    if (timer.ElapsedMilliseconds >= 500 || percent == 100)
+                    {
+                        progress(new ExportProgress(percent, label + "  ·  " + (output.Length / 1000000) + " МБ"));
+                        timer.Restart();
+                    }
                 }
                 sha.TransformFinalBlock(new byte[0], 0, 0);
                 if (!BitConverter.ToString(sha.Hash).Replace("-", "").Equals(hash, StringComparison.OrdinalIgnoreCase))
@@ -85,7 +90,20 @@ namespace Meeting2Text
                 if (Engine() == null)
                 {
                     string zip = Path.Combine(stage, "runtime.zip");
-                    Download(RuntimeUrl, zip, "8b3639c62c6c41b8134797ea9beedd6b6c26caad6a1ed99a3d5a2802262923d7", "Загрузка движка MN", token, progress);
+                    for (int attempt = 1; ; attempt++)
+                    {
+                        try
+                        {
+                            Download(RuntimeUrl + "?retry=" + attempt, zip, "8b3639c62c6c41b8134797ea9beedd6b6c26caad6a1ed99a3d5a2802262923d7", "Загрузка движка MN", token, progress);
+                            break;
+                        }
+                        catch (WebException)
+                        {
+                            token.ThrowIfCancellationRequested();
+                            if (attempt == 4) throw;
+                            if (token.WaitHandle.WaitOne(attempt * 1000)) token.ThrowIfCancellationRequested();
+                        }
+                    }
                     string extracted = Path.Combine(stage, "runtime");
                     ZipFile.ExtractToDirectory(zip, extracted);
                     if (!Directory.GetFiles(extracted, "llama-completion.exe", SearchOption.AllDirectories).Any())
@@ -134,7 +152,7 @@ namespace Meeting2Text
                             long received = 0;
                             try
                             {
-                                var request = (HttpWebRequest)WebRequest.Create(url + "?part=" + first + "-" + last);
+                                var request = (HttpWebRequest)WebRequest.Create(url + "?part=" + first + "-" + last + "&retry=" + attempt);
                                 request.ServicePoint.ConnectionLimit = options.MaxDegreeOfParallelism;
                                 request.Timeout = request.ReadWriteTimeout = 45000;
                                 request.AddRange(first, last);
@@ -183,11 +201,15 @@ namespace Meeting2Text
                             state.Position = i;
                             state.WriteByte(1);
                             state.Flush(true);
-                            complete++;
                         }
                     });
                 }
-                catch (AggregateException e) { token.ThrowIfCancellationRequested(); throw new IOException("Загрузка модели MN прервалась. Запустите ещё раз, чтобы продолжить.", e.GetBaseException()); }
+                catch (AggregateException e)
+                {
+                    token.ThrowIfCancellationRequested();
+                    throw new IOException("Загрузка модели MN прервалась. " + e.GetBaseException().Message +
+                        "\nПовторите загрузку или выберите «Сборка с моделью».", e.GetBaseException());
+                }
                 token.ThrowIfCancellationRequested();
                 progress(new ExportProgress(-1, "Проверка SHA-256 модели MN…"));
                 using (var sha = SHA256.Create())

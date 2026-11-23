@@ -32,6 +32,8 @@ jobs:
           Fetch "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q3_K_S.gguf?run=$env:GITHUB_RUN_ID" "$mn\model-q3.gguf" "0ce20058cc0ed6b6c9213bb383589327e458c12ffce0842fc96867042d669c75"
           Fetch "https://github.com/ggml-org/llama.cpp/releases/download/b12631/llama-b12631-bin-win-cpu-x64.zip" "$env:RUNNER_TEMP\llama.zip" "8b3639c62c6c41b8134797ea9beedd6b6c26caad6a1ed99a3d5a2802262923d7"
           Expand-Archive "$env:RUNNER_TEMP\llama.zip" "$mn\runtime"
+          curl.exe -fLsS --retry 3 https://raw.githubusercontent.com/ggml-org/llama.cpp/b12631/LICENSE -o "$mn\runtime\LICENSE-llama.cpp.txt"
+          if ($LASTEXITCODE) { throw 'Runtime license download failed' }
           curl.exe -fLsS --retry 3 https://www.apache.org/licenses/LICENSE-2.0.txt -o "$mn\MODEL-LICENSE.txt"
           if ($LASTEXITCODE) { throw 'Model license download failed' }
           "FFMPEG_BIN=$base\bin" >> $env:GITHUB_ENV
