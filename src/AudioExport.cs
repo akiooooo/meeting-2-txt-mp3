@@ -218,7 +218,7 @@ namespace Meeting2Text
             if (!File.Exists(Path.Combine(models, model)) || !File.Exists(Path.Combine(models, vad)))
                 throw new FileNotFoundException("Для распознавания рядом с программой нужна папка models с моделями Whisper и Silero.");
             progress(new ExportProgress(-1, "Распознавание речи на этом компьютере…"));
-            string filter = "aresample=16000,asetpts=N/SR/TB,whisper=model=" + model + ":vad_model=" + vad +
+            string filter = "aresample=16000,asetpts=N/SR/TB,silenceremove=start_periods=1:start_threshold=0:timestamp=copy,whisper=model=" + model + ":vad_model=" + vad +
                 ":vad_min_speech_duration=7:vad_min_silence_duration=1:language=" + language + ":queue=30:destination=-:format=srt";
             string args = "-stats_period 2 -progress pipe:2 -filter_threads " + Math.Min(6, Environment.ProcessorCount) +
                 " -i " + Quote(source) + " -map 0:a:0 -vn -af " + filter + " -f null NUL";
