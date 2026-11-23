@@ -429,9 +429,15 @@ namespace Meeting2Text
             bool audio = !TextInput && saveMp3.Checked;
             bool txt = !TextInput && transcribe.Checked;
             DateTime? date = mn.Checked ? (DateTime?)mnDate.Value.Date : null;
-            if (date.HasValue && !MeetingNotes.Ready && MessageBox.Show(this,
-                "Для протокола MN нужно один раз скачать языковую модель и движок (1,92 ГБ). Затем протоколы создаются без интернета. Скачать сейчас? Также можно установить «Сборку с моделью».",
-                "Локальная модель MN", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            bool draft = false;
+            if (date.HasValue && !MeetingNotes.Ready)
+            {
+                var choice = MessageBox.Show(this,
+                    "Скачать локальную модель MN (1,92 ГБ)?\n\nДа — скачать модель и составить протокол.\nНет — сразу создать черновик MN из реплик без загрузки.",
+                    "Как создать протокол", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (choice == DialogResult.Cancel) return;
+                draft = choice == DialogResult.No;
+            }
             int limit = audio && split.Checked ? (int)minutes.Value : 0;
             string speechLanguage = !TextInput && (txt || date.HasValue) ? new[] { "ru", "auto", "en" }[language.SelectedIndex] : null;
             cancel = new CancellationTokenSource();
@@ -453,10 +459,10 @@ namespace Meeting2Text
                     }
                 });
                 lastResult = await Task.Run(() => AudioExport.Run(files, destination, limit, audio, speechLanguage, token,
-                    ((IProgress<ExportProgress>)progress).Report, date, txt));
+                    ((IProgress<ExportProgress>)progress).Report, date, txt, draft));
                 lastMn = !date.HasValue ? null : !audio && !txt ? lastResult : Path.ChangeExtension(lastResult, ".mn.txt");
                 bar.Value = 100;
-                status.Text = "Сохранено: " + Path.GetFileName(lastResult) +
+                status.Text = (draft ? "Сохранён черновик из реплик: " : "Сохранено: ") + Path.GetFileName(lastResult) +
                     (audio && txt ? ", расшифровка .txt" : "") + (limit > 0 ? " и папка с частями" : "") + (date.HasValue && (audio || txt) ? ", протокол MN" : "");
             }
             catch (OperationCanceledException) { bar.Value = 0; status.Text = "Сохранение отменено"; }

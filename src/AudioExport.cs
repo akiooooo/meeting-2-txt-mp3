@@ -99,7 +99,7 @@ namespace Meeting2Text
         }
 
         public static string Run(string[] videos, string destination, int partMinutes, bool saveMp3,
-                                 string speechLanguage, CancellationToken token, Action<ExportProgress> progress, DateTime? mnDate = null, bool saveTranscript = true)
+                                 string speechLanguage, CancellationToken token, Action<ExportProgress> progress, DateTime? mnDate = null, bool saveTranscript = true, bool draft = false)
         {
             if (videos.Length == 0 || partMinutes < 0) throw new ArgumentException("Проверьте список файлов и длительность.");
             if (!saveMp3 && speechLanguage == null && !mnDate.HasValue) throw new ArgumentException("Выберите формат результата.");
@@ -120,7 +120,7 @@ namespace Meeting2Text
                 if (videos.Length == 1 && string.Equals(Path.GetExtension(videos[0]), ".txt", StringComparison.OrdinalIgnoreCase))
                 {
                     if (mn == null || saveMp3) throw new ArgumentException("Для TXT выберите протокол MN.");
-                    MeetingNotes.Write(videos[0], mn, mnDate.Value, token, progress);
+                    MeetingNotes.Generate(videos[0], mn, mnDate.Value, token, progress, draft);
                     token.ThrowIfCancellationRequested();
                     return Publish(stem, destination, null, null, null, mn);
                 }
@@ -136,7 +136,7 @@ namespace Meeting2Text
                     Transcribe(source, transcript, speechLanguage, token, progress);
                 }
                 token.ThrowIfCancellationRequested();
-                if (mn != null) MeetingNotes.Write(transcript, mn, mnDate.Value, token, progress);
+                if (mn != null) MeetingNotes.Generate(transcript, mn, mnDate.Value, token, progress, draft);
                 token.ThrowIfCancellationRequested();
                 return Publish(stem, destination, saveMp3 ? master : null, split ? parts : null, saveTranscript ? transcript : null, mn);
             }

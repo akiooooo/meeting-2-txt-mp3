@@ -227,6 +227,49 @@ namespace Meeting2Text
         public sealed class Decision { public string text { get; set; } public string quote { get; set; } }
         public sealed class Notes { public string[] topics { get; set; } public Decision[] decisions { get; set; } }
         static string Clean(string text) { return Regex.Replace(text ?? "", @"\s+", " ").Trim(); }
+        static string[] Utterances(string text)
+        {
+            return Regex.Split(Regex.Replace(text, @"(?m)^\s*\[\d+:\d\d:\d\d\]\s*", ""), @"[\r\n]+|(?<=[.!?])\s+(?=[\p{Lu}«])")
+                .Select(Clean).Where(s => s.Length > 6 && s != "Речь не распознана.").ToArray();
+        }
+
+        // Use only complete statements of agreement; keep the speaker's own wording.
+        static List<Decision> ExplicitDecisions(string[] lines)
+        {
+            var result = new List<Decision>();
+            foreach (string line in lines)
+            {
+                if (Regex.IsMatch(line, @"\b(отменяем|отменили|передумали|отзываем|пересмотрели)\b", RegexOptions.IgnoreCase))
+                    result.Clear();
+                if (line.Contains("?") || !Regex.IsMatch(line,
+                    @"^(?:[\p{L} .-]{1,48}:\s*)?(?:мы\s+)?(?:договорились|решили|утвердили|согласовали|согласовано|we agreed|we decided)\s+(?!ли\b)",
+                    RegexOptions.IgnoreCase)) continue;
+                result.Add(new Decision { text = line, quote = line });
+            }
+            return result;
+        }
+
+        internal static void Generate(string input, string output, DateTime date, CancellationToken token, Action<ExportProgress> progress, bool draft)
+        {
+            if (draft) WriteDraft(input, output, date, token, progress);
+            else Write(input, output, date, token, progress);
+        }
+        static void WriteDraft(string input, string output, DateTime date, CancellationToken token, Action<ExportProgress> progress)
+        {
+            progress(new ExportProgress(-1, "Черновик MN из реплик…"));
+            var lines = Utterances(File.ReadAllText(input));
+            var decisions = ExplicitDecisions(lines).Select(d => d.text).Distinct().ToList();
+            var candidates = lines.Except(decisions).Where(s => s.Length > 18).Distinct().ToArray();
+            var topics = new List<string>();
+            int groups = Math.Min(8, candidates.Length);
+            for (int i = 0; i < groups; i++)
+            {
+                token.ThrowIfCancellationRequested();
+                var group = candidates.Skip(i * candidates.Length / groups).Take((i + 1) * candidates.Length / groups - i * candidates.Length / groups);
+                topics.Add(group.OrderByDescending(s => s.Contains("?")).ThenByDescending(s => Math.Min(240, s.Length)).First());
+            }
+            SaveNotes(output, date, topics, decisions);
+        }
         const string Instructions = "Ты секретарь встречи. Составь на русском краткий фактический протокол по материалу. " +
             "topics — основные темы обсуждения краткими самостоятельными предложениями. Вопросы без согласованного ответа остаются темами. " +
             "decisions — только явно согласованные решения и обязательства. Для каждого напиши text: короткое название темы, " +
@@ -294,6 +337,7 @@ namespace Meeting2Text
                     string chunk = source.Substring(start, length);
                     var part = Infer(chunk, stage, false, token);
                     part.decisions = part.decisions.Where(d => Supported(d, chunk)).ToArray();
+                    if (part.decisions.Length == 0) part.decisions = ExplicitDecisions(Utterances(chunk)).ToArray();
                     notes.Add(part);
                     start += length;
                 }
@@ -315,6 +359,10 @@ namespace Meeting2Text
                 topics.AddRange(notes[0].topics.Select(Clean).Where(s => s.Length > 0).Distinct());
                 decisions.AddRange(notes[0].decisions.Select(d => Clean(d.text)).Where(s => s.Length > 0).Distinct());
             }
+            SaveNotes(output, date, topics, decisions);
+        }
+        static void SaveNotes(string output, DateTime date, List<string> topics, List<string> decisions)
+        {
             var lines = new List<string> { "#MN", "Дата: " + date.ToString("dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture), "Обсуждали:" };
             lines.AddRange(topics.DefaultIfEmpty("Темы не определены.").Select(t => "- " + t));
             lines.Add("Решили:");
