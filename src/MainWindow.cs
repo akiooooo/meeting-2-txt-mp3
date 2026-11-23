@@ -248,7 +248,9 @@ namespace Meeting2Text
             mnDate.Width = 122;
             mnDate.AccessibleName = "Дата встречи для протокола MN";
             mnDate.Margin = new Padding(0, 5, 0, 0);
-            notesRow.Controls.AddRange(new Control[] { mn, dateLabel, mnDate });
+            var offline = new LinkLabel { Text = "Сборка с моделью", AutoSize = true, Margin = new Padding(10, 8, 0, 0) };
+            offline.LinkClicked += delegate { Process.Start("https://github.com/akiooooo/meeting-2-txt-mp3/releases/latest/download/Meeting2Text-Offline-MN-x64.exe"); };
+            notesRow.Controls.AddRange(new Control[] { mn, dateLabel, mnDate, offline });
             body.Controls.Add(notesRow, 0, 6);
             var footer = Rows(24, 6, -1);
             footer.Padding = new Padding(24, 6, 24, 8);
@@ -428,7 +430,7 @@ namespace Meeting2Text
             bool txt = !TextInput && transcribe.Checked;
             DateTime? date = mn.Checked ? (DateTime?)mnDate.Value.Date : null;
             if (date.HasValue && !MeetingNotes.Ready && MessageBox.Show(this,
-                "Для протокола MN нужно один раз скачать языковую модель и движок (2,53 ГБ). Затем протоколы создаются без интернета. Скачать сейчас?",
+                "Для протокола MN нужно один раз скачать языковую модель и движок (1,92 ГБ). Затем протоколы создаются без интернета. Скачать сейчас? Также можно установить «Сборку с моделью».",
                 "Локальная модель MN", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             int limit = audio && split.Checked ? (int)minutes.Value : 0;
             string speechLanguage = !TextInput && (txt || date.HasValue) ? new[] { "ru", "auto", "en" }[language.SelectedIndex] : null;

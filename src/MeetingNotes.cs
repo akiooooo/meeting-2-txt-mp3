@@ -17,14 +17,34 @@ namespace Meeting2Text
     internal static class MeetingNotes
     {
         static readonly string Cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Meeting2Text", "MN-v1");
-        static readonly string Model = Path.Combine(Cache, "model.gguf");
+        static readonly string Bundle = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mn");
+        const long CompactSize = 1886997600L;
+        static string Model
+        {
+            get
+            {
+                foreach (string root in new[] { Bundle, Cache })
+                {
+                    var file = new FileInfo(Path.Combine(root, "model-q3.gguf"));
+                    if (file.Exists && file.Length == CompactSize) return file.FullName;
+                }
+                var previous = new FileInfo(Path.Combine(Cache, "model.gguf"));
+                return previous.Exists && previous.Length == 2497281120L ? previous.FullName : null;
+            }
+        }
         const string RuntimeUrl = "https://github.com/ggml-org/llama.cpp/releases/download/b12631/llama-b12631-bin-win-cpu-x64.zip";
-        const string ModelUrl = "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf";
-        const string ModelHash = "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597";
+        const string ModelUrl = "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q3_K_S.gguf";
+        const string ModelHash = "0ce20058cc0ed6b6c9213bb383589327e458c12ffce0842fc96867042d669c75";
         static string Engine()
         {
-            string dir = Path.Combine(Cache, "runtime");
-            return Directory.Exists(dir) ? Directory.GetFiles(dir, "llama-completion.exe", SearchOption.AllDirectories).FirstOrDefault() : null;
+            foreach (string root in new[] { Bundle, Cache })
+            {
+                string dir = Path.Combine(root, "runtime");
+                if (!Directory.Exists(dir)) continue;
+                string exe = Directory.GetFiles(dir, "llama-completion.exe", SearchOption.AllDirectories).FirstOrDefault();
+                if (exe != null) return exe;
+            }
+            return null;
         }
         public static bool Ready { get { return File.Exists(Model) && Engine() != null; } }
 
@@ -73,7 +93,7 @@ namespace Meeting2Text
                     try { Directory.Move(extracted, Path.Combine(Cache, "runtime")); }
                     catch (IOException) { if (Engine() == null) throw; }
                 }
-                if (!File.Exists(Model)) DownloadModel(ModelUrl, Model, 2497281120L, ModelHash, token, progress);
+                if (Model == null) DownloadModel(ModelUrl, Path.Combine(Cache, "model-q3.gguf"), CompactSize, ModelHash, token, progress);
             }
             finally { Directory.Delete(stage, true); }
         }
@@ -99,6 +119,9 @@ namespace Meeting2Text
                     state.Flush(true);
                 }
                 int complete = done.Count(b => b == 1);
+                long bytes = Enumerable.Range(0, blocks).Where(i => done[i] == 1).Sum(i => Math.Min((long)block, size - (long)i * block));
+                long lastUpdate = 0;
+                progress(new ExportProgress(complete * 100 / blocks, "Подключение к серверу модели MN…"));
                 var options = new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = 12 };
                 try
                 {
@@ -106,41 +129,67 @@ namespace Meeting2Text
                     {
                         if (done[i] == 1) return;
                         long first = (long)i * block, last = Math.Min(size, first + block) - 1;
-                        var request = (HttpWebRequest)WebRequest.Create(url + "?part=" + first + "-" + last);
-                        request.ServicePoint.ConnectionLimit = options.MaxDegreeOfParallelism;
-                        request.Timeout = request.ReadWriteTimeout = 120000;
-                        request.AddRange(first, last);
-                        using (token.Register(request.Abort))
-                        using (var response = (HttpWebResponse)request.GetResponse())
-                        using (var input = response.GetResponseStream())
-                        using (var file = new FileStream(partial, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+                        for (int attempt = 1; ; attempt++)
                         {
-                            if (response.StatusCode != HttpStatusCode.PartialContent ||
-                                response.Headers["Content-Range"] != string.Format(System.Globalization.CultureInfo.InvariantCulture,
-                                "bytes {0}-{1}/{2}", first, last, size)) throw new IOException("Сервер вернул неверный диапазон модели MN.");
-                            file.Position = first;
-                            byte[] buffer = new byte[131072];
-                            while (file.Position <= last)
+                            long received = 0;
+                            try
+                            {
+                                var request = (HttpWebRequest)WebRequest.Create(url + "?part=" + first + "-" + last);
+                                request.ServicePoint.ConnectionLimit = options.MaxDegreeOfParallelism;
+                                request.Timeout = request.ReadWriteTimeout = 45000;
+                                request.AddRange(first, last);
+                                using (token.Register(request.Abort))
+                                using (var response = (HttpWebResponse)request.GetResponse())
+                                using (var input = response.GetResponseStream())
+                                using (var file = new FileStream(partial, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+                                {
+                                    if (response.StatusCode != HttpStatusCode.PartialContent ||
+                                        response.Headers["Content-Range"] != string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                                        "bytes {0}-{1}/{2}", first, last, size)) throw new IOException("Сервер вернул неверный диапазон модели MN.");
+                                    file.Position = first;
+                                    byte[] buffer = new byte[131072];
+                                    while (file.Position <= last)
+                                    {
+                                        token.ThrowIfCancellationRequested();
+                                        int n = input.Read(buffer, 0, (int)Math.Min(buffer.Length, last + 1 - file.Position));
+                                        if (n == 0) throw new EndOfStreamException("Загрузка MN прервалась. Повторите, чтобы продолжить.");
+                                        file.Write(buffer, 0, n);
+                                        received += n;
+                                        lock (state)
+                                        {
+                                            bytes += n;
+                                            if (DateTime.UtcNow.Ticks - lastUpdate >= TimeSpan.TicksPerSecond)
+                                            {
+                                                lastUpdate = DateTime.UtcNow.Ticks;
+                                                progress(new ExportProgress((int)(bytes * 100 / size), string.Format("Модель MN: {0:N0} из {1:N0} МБ", bytes / 1000000, size / 1000000)));
+                                            }
+                                        }
+                                    }
+                                    file.Flush(true);
+                                }
+                                break;
+                            }
+                            catch (Exception e)
                             {
                                 token.ThrowIfCancellationRequested();
-                                int n = input.Read(buffer, 0, (int)Math.Min(buffer.Length, last + 1 - file.Position));
-                                if (n == 0) throw new EndOfStreamException("Загрузка MN прервалась. Повторите, чтобы продолжить.");
-                                file.Write(buffer, 0, n);
+                                if (attempt >= 4 || (!(e is WebException) && !(e is EndOfStreamException))) throw;
+                                lock (state) { bytes -= received; }
+                                progress(new ExportProgress(-1, "Повторное подключение к серверу модели MN…"));
+                                if (token.WaitHandle.WaitOne(attempt * 1000)) token.ThrowIfCancellationRequested();
                             }
-                            file.Flush(true);
                         }
                         lock (state)
                         {
                             state.Position = i;
                             state.WriteByte(1);
                             state.Flush(true);
-                            int percent = ++complete * 100 / blocks;
-                            progress(new ExportProgress(percent, "Загрузка модели MN  ·  " + percent + "%"));
+                            complete++;
                         }
                     });
                 }
                 catch (AggregateException e) { token.ThrowIfCancellationRequested(); throw new IOException("Загрузка модели MN прервалась. Запустите ещё раз, чтобы продолжить.", e.GetBaseException()); }
                 token.ThrowIfCancellationRequested();
+                progress(new ExportProgress(-1, "Проверка SHA-256 модели MN…"));
                 using (var sha = SHA256.Create())
                 using (var input = File.OpenRead(partial))
                     if (!BitConverter.ToString(sha.ComputeHash(input)).Replace("-", "").Equals(digest, StringComparison.OrdinalIgnoreCase))

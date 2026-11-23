@@ -1,9 +1,10 @@
-﻿#define FFmpegBin GetEnv("FFMPEG_BIN")
+﻿#define MNDir GetEnv("MN_PAYLOAD")
+#define FFmpegBin GetEnv("FFMPEG_BIN")
 [Setup]
 ; Keep the installation identity so existing copies can be upgraded.
 AppId=Rechekadr.Desktop
 AppName=Meeting2Text
-AppVersion=1.2.0
+AppVersion=1.2.1
 DefaultDirName={localappdata}\Programs\Meeting2Text
 DefaultGroupName=Meeting2Text
 UsePreviousGroup=no
@@ -21,7 +22,11 @@ LZMAUseSeparateProcess=yes
 LZMADictionarySize=131072
 SolidCompression=yes
 OutputDir=..\dist
+#ifdef BundleMN
+OutputBaseFilename=Meeting2Text-Offline-MN-x64
+#else
 OutputBaseFilename=Meeting2Text-Setup-x64
+#endif
 UninstallDisplayIcon={app}\Meeting2Text.exe
 [Languages]
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
@@ -34,6 +39,11 @@ Source: "{#FFmpegBin}\ffmpeg.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#FFmpegBin}\*.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#FFmpegBin}\..\LICENSE"; DestDir: "{app}\licenses\FFmpeg"; Flags: ignoreversion
 Source: "{#FFmpegBin}\..\README.txt"; DestDir: "{app}\licenses\FFmpeg"; Flags: ignoreversion
+#ifdef BundleMN
+Source: "{#MNDir}\model-q3.gguf"; DestDir: "{app}\mn"; Flags: ignoreversion
+Source: "{#MNDir}\runtime\*"; DestDir: "{app}\mn\runtime"; Flags: ignoreversion recursesubdirs
+Source: "{#MNDir}\MODEL-LICENSE.txt"; DestDir: "{app}\mn"; Flags: ignoreversion
+#endif
 [InstallDelete]
 Type: files; Name: "{userprograms}\Речекадр\Речекадр.lnk"
 Type: dirifempty; Name: "{userprograms}\Речекадр"
